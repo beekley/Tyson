@@ -27,6 +27,20 @@ function nav(url, disposition){
   }
 }
 
+// Escape XML
+function escapeXml(unsafe) {
+    return unsafe.replace(/[<>&'"]/g, function (c) {
+        switch (c) {
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '&': return '&amp;';
+            case '\'': return '&apos;';
+            case '"': return '&quot;';
+        }
+    });
+}
+
+
 // Omnibox text entered/updated 
 chrome.omnibox.onInputChanged.addListener((text, suggest) => {
   const start = new Date()
@@ -106,16 +120,35 @@ function runSearch (type, term, currentResults, callback) {
   
   // If given some current results
   if (currentResults && currentResults.length > 0) {
+    if (type === 'content') {
+      
+      currentResults = currentResults.filter((res) => {
+        console.log(res.content);
+        let found = false;
+        const xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() {
+          if (this.readyState == 4 && this.status == 200) {
+            console.log(res.content, this.responseText.indexOf(term))
+            if (this.responseText.indexOf(term) >= 0) found = true;
+          }
+        };
+        xhttp.open("GET", res.content, true);
+        xhttp.send();
+        return found;
+      })
+      callback(currentResults);
+    }
     
   }
   
+  // Plain should only appear as first term, though first term will not always be plain
   else {
     if (type === 'plain') {
       chrome.bookmarks.search(term, (results) => {
         results = results.filter((res) => {
           return !!res.url;
         }).map((res) => {
-          let desc = res.title;
+          let desc = escapeXml(res.title);
           //console.log(res);
           return {content: res.url, description: desc};
         })
@@ -131,3 +164,5 @@ chrome.omnibox.onInputEntered.addListener((text, disposition) => {
   nav(text, disposition);
   
 })
+
+
