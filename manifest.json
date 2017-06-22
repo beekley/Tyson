@@ -1,6 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Tyson",
+  "omnibox": { "keyword" : "$" },
   "version": "0.1",
   "description": "A place to manage your stars"
 }
