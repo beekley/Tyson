@@ -9,6 +9,7 @@
   },
   "permissions": [
     "bookmarks",
-    "<all_urls>"
+    "<all_urls>",
+    "tabs"
   ]
 }

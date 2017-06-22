@@ -48,45 +48,59 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
   // queue of search terms
   const searchQueue = [];
   
-  // Check for plain search before custom searches
-  if (text.indexOf(":") !== 0) {
-    const search = text.slice(0, text.indexOf(":") - 1 > 0 ? text.indexOf(":") - 1 : undefined)
-    
-    if (verbose) console.log('Plain Search: ' + search);
-    searchQueue.push({
-      type: 'plain',
-      term: search.trim()
-    })
-  }
-  
-  // Check for meta search term
-  if (text.indexOf(":meta") >= 0) {
+  // Check for tab search
+  if (text.indexOf(":t") >= 0) {
     // meta search string
-    const sliceStart = text.indexOf(":meta") + 6;
-    const sliceEnd = text.indexOf(':', text.indexOf(":meta") + 1);
+    const sliceStart = text.indexOf(":t") + 3;
+    const sliceEnd = text.indexOf(':', text.indexOf(":t") + 1);
     const search = text.slice(sliceStart, sliceEnd === -1 ? undefined : sliceEnd) 
     
-    if (verbose) console.log('Meta Search: ' + search);
+    if (verbose) console.log('Tab Search: ' + search);
     searchQueue.push({
-      type: 'meta',
+      type: 'tab',
       term: search.trim()
     })
   }
-  
-  // Check for content search term
-  if (text.indexOf(":content") >= 0) {
-    // meta search string
-    const sliceStart = text.indexOf(":content") + 9;
-    const sliceEnd = text.indexOf(':', text.indexOf(":content") + 1);
-    const search = text.slice(sliceStart, sliceEnd === -1 ? undefined : sliceEnd) 
-    
-    if (verbose) console.log('Content Search: ' + search);
-    searchQueue.push({
-      type: 'content',
-      term: search.trim()
-    })
+  else {
+    // Check for plain search before custom searches
+    if (text.indexOf(":") !== 0) {
+      const search = text.slice(0, text.indexOf(":") - 1 > 0 ? text.indexOf(":") - 1 : undefined)
+
+      if (verbose) console.log('Plain Search: ' + search);
+      searchQueue.push({
+        type: 'plain',
+        term: search.trim()
+      })
+    }
+
+    // Check for meta search term
+    if (text.indexOf(":meta") >= 0) {
+      // meta search string
+      const sliceStart = text.indexOf(":meta") + 6;
+      const sliceEnd = text.indexOf(':', text.indexOf(":meta") + 1);
+      const search = text.slice(sliceStart, sliceEnd === -1 ? undefined : sliceEnd) 
+
+      if (verbose) console.log('Meta Search: ' + search);
+      searchQueue.push({
+        type: 'meta',
+        term: search.trim()
+      })
+    }
+
+    // Check for content search term
+    if (text.indexOf(":content") >= 0) {
+      // meta search string
+      const sliceStart = text.indexOf(":content") + 9;
+      const sliceEnd = text.indexOf(':', text.indexOf(":content") + 1);
+      const search = text.slice(sliceStart, sliceEnd === -1 ? undefined : sliceEnd) 
+
+      if (verbose) console.log('Content Search: ' + search);
+      searchQueue.push({
+        type: 'content',
+        term: search.trim()
+      })
+    }
   }
-  
   
   if (verbose) console.log(searchQueue);
   
@@ -97,9 +111,18 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
   })
   chrome.omnibox.setDefaultSuggestion({description:status});
   
+  // Run tab search
+  if (searchQueue[0] && searchQueue[0].type === 'tab') {
+    runSearch(searchQueue[0].type, searchQueue[0].term, [], (results) => {
+      console.log(results);
+      suggest(results.map((tab) => {
+        return {content: tab.index.toString(), description: tab.title}
+      }));
+    });
+  }
   
   // Run searches
-  if (searchQueue[0]) runSearch(searchQueue[0].type, searchQueue[0].term, [], (results) => {
+  else if (searchQueue[0]) runSearch(searchQueue[0].type, searchQueue[0].term, [], (results) => {
     if (searchQueue[1]) runSearch(searchQueue[1].type, searchQueue[1].term, results, (results) => {
       if (searchQueue[2]) runSearch(searchQueue[2].type, searchQueue[2].term, results, (results) => {
         // return results into omnibox
@@ -120,24 +143,25 @@ function runSearch (type, term, currentResults, callback) {
   
   // If given some current results
   if (currentResults && currentResults.length > 0) {
-    if (type === 'content') {
-      
-      currentResults = currentResults.filter((res) => {
-        console.log(res.content);
-        let found = false;
-        const xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() {
-          if (this.readyState == 4 && this.status == 200) {
-            console.log(res.content, this.responseText.indexOf(term))
-            if (this.responseText.indexOf(term) >= 0) found = true;
-          }
-        };
-        xhttp.open("GET", res.content, true);
-        xhttp.send();
-        return found;
-      })
-      callback(currentResults);
-    }
+//    if (type === 'content') {
+//      
+//      currentResults = currentResults.filter((res) => {
+//        console.log(res.content);
+//        let found = false;
+//        const xhttp = new XMLHttpRequest();
+//        xhttp.onreadystatechange = function() {
+//          if (this.readyState == 4 && this.status == 200) {
+//            console.log(res.content, this.responseText.indexOf(term))
+//            if (this.responseText.indexOf(term) >= 0) found = true;
+//          }
+//        };
+//        xhttp.open("GET", res.content, true);
+//        xhttp.send();
+//        return found;
+//      })
+//      callback(currentResults);
+//    }
+    callback(currentResults);
     
   }
   
@@ -155,13 +179,30 @@ function runSearch (type, term, currentResults, callback) {
         callback(results);
       })
     }
+    
+    // Tab search
+    else if (type === 'tab') {
+      console.log("tab search");
+      chrome.tabs.query({}, (tabs) => {
+        const filteredTabs = tabs.filter((tab) => {
+          return tab.url.indexOf(term) !== -1 || tab.title.indexOf(term) !== -1
+        })
+        callback(filteredTabs);
+      })
+    }
   }
 }
 
 // Option selected
 chrome.omnibox.onInputEntered.addListener((text, disposition) => {
   
-  nav(text, disposition);
+  // Check for tab
+  let num = parseInt(text)
+  if (isFinite(num)) {
+    chrome.tabs.highlight({tabs: num});
+  }
+  
+  else nav(text, disposition);
   
 })
 
