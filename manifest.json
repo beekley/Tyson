@@ -3,5 +3,8 @@
   "name": "Tyson",
   "omnibox": { "keyword" : "$" },
   "version": "0.1",
-  "description": "A place to manage your stars"
+  "description": "A place to manage your stars",
+  "background": {
+    "scripts":["background.js"]
+  }
 }
