@@ -6,5 +6,8 @@
   "description": "A place to manage your stars",
   "background": {
     "scripts":["background.js"]
-  }
+  },
+  "permissions": [
+    "bookmarks"
+  ]
 }
