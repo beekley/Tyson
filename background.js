@@ -1,6 +1,6 @@
 // Omnibox event handling and functionality
 
-// Return to default 
+const verbose = false;
 
 // Navigate to URL
 function nav(url, disposition){
@@ -34,22 +34,13 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
   // queue of search terms
   const searchQueue = [];
   
-  /*if (text.indexOf(":content") === 0) {
-    console.log('Content Search');
-    chrome.omnibox.setDefaultSuggestion({description:'Searching through <match>page contents</match>'});
-  }*/
-  
-  // Check for content search term
-  if (text.indexOf(":content") >= 0) {
-    // meta search string
-    const sliceStart = text.indexOf(":content") + 9;
-    const sliceEnd = text.indexOf(':', text.indexOf(":content") + 1);
-    const search = text.slice(sliceStart, sliceEnd === -1 ? undefined : sliceEnd) 
-    //console.log(sliceStart, sliceEnd === -1 ? undefined : sliceEnd)
+  // Check for plain search before custom searches
+  if (text.indexOf(":") !== 0) {
+    const search = text.slice(0, text.indexOf(":") - 1 > 0 ? text.indexOf(":") - 1 : undefined)
     
-    console.log('Content Search: ' + search);
+    if (verbose) console.log('Plain Search: ' + search);
     searchQueue.push({
-      type: 'content',
+      type: 'plain',
       term: search.trim()
     })
   }
@@ -60,69 +51,83 @@ chrome.omnibox.onInputChanged.addListener((text, suggest) => {
     const sliceStart = text.indexOf(":meta") + 6;
     const sliceEnd = text.indexOf(':', text.indexOf(":meta") + 1);
     const search = text.slice(sliceStart, sliceEnd === -1 ? undefined : sliceEnd) 
-    //console.log(sliceStart, sliceEnd === -1 ? undefined : sliceEnd)
     
-    console.log('Meta Search: ' + search);
+    if (verbose) console.log('Meta Search: ' + search);
     searchQueue.push({
       type: 'meta',
       term: search.trim()
     })
-    
-    //chrome.omnibox.setDefaultSuggestion({description:'Searching through <match>page metadata</match> <dim>(Not all pages may have metadata)</dim>'});
-    
-    // Create array of 
-    
   }
   
-  // Check for plain search before custom searches
-  if (text.indexOf(":") !== 0) {
-    const search = text.slice(0, text.indexOf(":") - 1 > 0 ? text.indexOf(":") - 1 : undefined)
+  // Check for content search term
+  if (text.indexOf(":content") >= 0) {
+    // meta search string
+    const sliceStart = text.indexOf(":content") + 9;
+    const sliceEnd = text.indexOf(':', text.indexOf(":content") + 1);
+    const search = text.slice(sliceStart, sliceEnd === -1 ? undefined : sliceEnd) 
     
-    console.log('Plain Search: ' + search);
+    if (verbose) console.log('Content Search: ' + search);
     searchQueue.push({
-      type: 'plain',
+      type: 'content',
       term: search.trim()
     })
-    
-//    // Plain search bookmarks
-//    chrome.bookmarks.search(text, (results) => {
-//      
-//      // Get search results
-//      const stars = results
-//        .filter(result => {
-//          return !!result.url
-//        })
-//        .map(result => {
-//          return {
-//            content: result.url,
-//            description: 'test'
-//          }
-//        });
-//      
-//      // Default to first result
-//      chrome.omnibox.setDefaultSuggestion({description:"Searching by <match>bookmark</match>"});
-//      
-//      // Shift stars since we suggested the first one
-//      suggest(stars);
-//
-//      const end = new Date();
-//      console.log("Time to print results:", (end - start));
-//    })
   }
   
-  console.log(searchQueue);
   
-  // Update default search
+  if (verbose) console.log(searchQueue);
+  
+  // Update default search tooltip
   let status = 'Searching '
   searchQueue.forEach((search) => {
     status += '<url>' + search.type + ':</url> ' + '\'<match>' + search.term + '</match>\' '
   })
   chrome.omnibox.setDefaultSuggestion({description:status});
+  
+  
+  // Run searches
+  if (searchQueue[0]) runSearch(searchQueue[0].type, searchQueue[0].term, [], (results) => {
+    if (searchQueue[1]) runSearch(searchQueue[1].type, searchQueue[1].term, results, (results) => {
+      if (searchQueue[2]) runSearch(searchQueue[2].type, searchQueue[2].term, results, (results) => {
+        // return results into omnibox
+        suggest(results);
+      });
+      else suggest(results);
+    });
+    else suggest(results);
+  })
 });
+
+// Runs a search with the given term and type on the given current results
+// If no current results, searches all bookmarks
+// Runs a callback with parameter that is an array of suggestions {description, content}
+function runSearch (type, term, currentResults, callback) {
+  
+  
+  
+  // If given some current results
+  if (currentResults && currentResults.length > 0) {
+    
+  }
+  
+  else {
+    if (type === 'plain') {
+      chrome.bookmarks.search(term, (results) => {
+        results = results.filter((res) => {
+          return !!res.url;
+        }).map((res) => {
+          let desc = res.title;
+          //console.log(res);
+          return {content: res.url, description: desc};
+        })
+        callback(results);
+      })
+    }
+  }
+}
 
 // Option selected
 chrome.omnibox.onInputEntered.addListener((text, disposition) => {
   
-  //nav(text, disposition);
+  nav(text, disposition);
   
 })
