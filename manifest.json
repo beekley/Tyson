@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "Tyson",
   "omnibox": { "keyword" : "t" },
-  "version": "0.2",
+  "version": "0.0.2",
   "description": "A place to manage your stars",
   "background": {
     "scripts":["background.js"]

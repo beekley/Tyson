@@ -14,7 +14,9 @@ chrome.omnibox.onInputStarted.addListener(() => {
 chrome.omnibox.onInputChanged.addListener((text, suggest) => {
   
   const filteredTabs = tabs.filter((tab) => {
-    return tab.url.match(text) || tab.title.match(text);
+    const exp = new RegExp(text, 'i');
+    if (verbose) console.log(exp);
+    return tab.url.match(exp) || tab.title.match(exp);
   });
 
   suggest(filteredTabs.map((tab) => {
